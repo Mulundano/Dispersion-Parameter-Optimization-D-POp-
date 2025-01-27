@@ -1,0 +1,11 @@
+! blyp def2-svpd gcp(file)
+%pal 
+NPROCS 6 
+end
+%maxcore 2000
+%method
+  D3A1 0.3065
+  D3S8 0.9147
+  D3A2 5.0570
+end
+* xyz 0 1

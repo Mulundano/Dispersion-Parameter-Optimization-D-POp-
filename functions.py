@@ -74,11 +74,9 @@ def struct_dict_maker(path):
 
 # function to create dictionary to reference energy values
 #dictionary {key: value} of {structure name: energy value}
-def value_dict_maker(path, error):
+def value_dict_maker(path):
     with open(path, "r") as f:
         value_list = [ x.split() for x in f.read().split("\n") if x]
-    if "ref" in path.split("/")[-1] and error == "cat_error":
-        return {x[0]: float(x[1]) for x in value_list}, {x[0]: float(x[2]) for x in value_list}
     return {x[0]: float(x[1]) for x in value_list}
 
 # function to change top of orca input file
@@ -151,8 +149,14 @@ def lib_constructor(basis_set, functional, struct_dict, name, gcp):
 
 
 # function to calculate the interaction energies of the dimers in the dataset given
-def energy(change_params, inter_energies, base_calculations, struct_dict, functional):
+def energy(change_params, kwargs):
 
+    # necessary variables picked from the keyword argument (kwargs) dictionary
+    struct_dict = kwargs["struct_dict"]
+    inter_energies = kwargs["inter_energies"]
+    base_calculations = kwargs["base_calculations"]
+    functional = kwargs["functional"]
+    
     # opens up top file 
     with open(f"{top}", "r") as f:
         data = f.read()
@@ -245,26 +249,34 @@ def mean(splx):
 
 #////// Error Functions ////////////////////////
 
-# function to return the mean absolute error
-def energy_mae(change_params, inter_energies, base_calculations, struct_dict, functional):
-    strd_values, energy_list = energy(change_params, inter_energies, base_calculations, struct_dict, functional)
-    return  mae(strd_values, energy_list)# returns mean absolute error
+# general error function
+def error_function(change_params, kwargs):
+    strd_values, energy_list = energy(change_params,kwargs)
+    match kwargs["error_func"]:
+        case "mae":
+            return mae(strd_values, energy_list)
 
-# function to return the mean absolute percentage error
-def energy_mape(change_params, inter_energies, base_calculations, struct_dict, functional):
-    strd_values, energy_list = energy(change_params, inter_energies, base_calculations, struct_dict, functional)
-    return  mape(strd_values, energy_list)# returns mean absolute percentage error
+        case "mape":
+            return mape(strd_values, energy_list)
 
-# function to return the root mean squared error
-def energy_rmse(change_params, inter_energies, base_calculations, struct_dict, functional):
-    strd_values, energy_list = energy(change_params, inter_energies, base_calculations, struct_dict, functional)
-    return  rmse(strd_values, energy_list)# returns root mean squared error
+        case "rmse":
+            return rmse(strd_values, energy_list)
+
+        case "set_error":
+            error = 1
+            deviations = [abs(x - y) for (x,y) in zip(strd_values, energy_list)]
+            for dv in deviations:
+                error = error * dv
+            return error
 
 #////// Error Functions ////////////////////////
 
 #Nelder-Mead Optimization - referenced from Algorithms for Optimization by Mykel J. Kochenderfer and Tim A. Wheeler
-def nelder_mead(func, splx, ϵ, inter_energies, base_calculations, struct_dict, functional, α=1.0, β=2.0,γ=0.5):
+def nelder_mead( splx, α=1.0, β=2.0,γ=0.5, ϵ=0.0001, **kwargs):
 
+    # function to minimize in the algorithm 
+    func = kwargs["func"]
+    
     # number to keep track of what iteration of the following loop is currently running
     count = 0
     
@@ -274,7 +286,7 @@ def nelder_mead(func, splx, ϵ, inter_energies, base_calculations, struct_dict, 
     print("Calculating error values of simplex points")
 
     # calculates values for each point on the simplex from the error function
-    y_vals = [func(x, inter_energies, base_calculations, struct_dict, functional) for x in splx]
+    y_vals = [func(x, kwargs) for x in splx]
 
     # loop runs until standard deviation is lower than the given tolerance ϵ
     while Δ > ϵ:
@@ -304,7 +316,7 @@ def nelder_mead(func, splx, ϵ, inter_energies, base_calculations, struct_dict, 
 
         # calculates reflection of highest point across the centroid/mean % its value
         xr = [a + b for (a,b) in zip(xm,[α*(c-d) for (c,d) in zip(xm,xh)])] #xm + (α*(xm-xh))
-        yr = func(xr, inter_energies, base_calculations, struct_dict, functional)
+        yr = func(xr, kwargs)
 
         # condition to check if reflected point value is lower than lowest value
         if yr < yl:
@@ -313,7 +325,7 @@ def nelder_mead(func, splx, ϵ, inter_energies, base_calculations, struct_dict, 
             # if the conditon is passed it means this direction is favorable
             # an extension point is found further in the direction of the reflected point
             xe = [a + b for (a,b) in zip(xm,[β*(c-d) for (c,d) in zip(xr,xm)])] #xm + (β*(xr-xm))
-            ye = func(xe, inter_energies, base_calculations, struct_dict, functional)
+            ye = func(xe, kwargs)
 
             # if the value of the extension point is better than the reflected point, it replaces the highest point
             # if it is higher the reflected point, the reflected point replaces the highest point
@@ -332,7 +344,7 @@ def nelder_mead(func, splx, ϵ, inter_energies, base_calculations, struct_dict, 
             # if outer condition is met, it implies that going further out is not worthwhile
             # a contraction point and its value is calculated 
             xc = [a + b for (a,b) in zip(xm,[γ*(c-d) for (c,d) in zip(xh,xm)])] #xm + (γ*(xh-xm))
-            yc = func(xc, inter_energies, base_calculations, struct_dict, functional)
+            yc = func(xc, kwargs)
 
             # condition to check if contraction point value is larger than highest value
             if yc > yh:
@@ -342,7 +354,7 @@ def nelder_mead(func, splx, ϵ, inter_energies, base_calculations, struct_dict, 
                 # the only option left is to shrink the simplex towards the lowest point
                 for i in range(1, len(y_vals)):
                     splx[i] = [(a + b)/2 for (a,b) in zip(splx[i],xl)] #(splx[i] + xl)/2
-                    y_vals[i] = func(splx[i], inter_energies, base_calculations, struct_dict, functional)
+                    y_vals[i] = func(splx[i], kwargs)
             else:
                # if condition is not met the highest point is replaced by the contraction point
                splx[-1], y_vals[-1] = xc, yc
@@ -359,8 +371,17 @@ def nelder_mead(func, splx, ϵ, inter_energies, base_calculations, struct_dict, 
     # command to delete checkpoint file
     subprocess.run("rm checkpoint", shell=True)
     
-    # when loop is broekn the lowest point on the simplex is returned with its value
-    val = splx[y_vals.index(min(y_vals))]
-    return val, min(y_vals)
+    # when loop is broekn the lowest point on the simplex is given as the parameters and the associated function value is the error
+    error = min(y_vals)
+    parameters = splx[y_vals.index(error)]
 
+    # variables needed to print to output file
+    strd_values, energy_list = energy(parameters, kwargs)
+    file_name = kwargs["file"]
+    error_func = kwargs["error_func"]
+
+    # putting final information in output file
+    with open(file_name, 'a') as f:
+        f.write(f"The MAE is {mae(strd_values, energy_list)}. The MAPE is {mape(strd_values, energy_list)}. The RMSE is {rmse(strd_values, energy_list)}\nThe final parameters are\n A1: {parameters[0]}\n S8: {parameters[1]}\n A2: {parameters[2]}\n The {error_func.upper()} with these parameters is {error}\nThe list of interaction energies with the final parameters is:\n {energy_list}\n\n")
+        
 ################################ NELDER MEAD METHOD SPECFIC FUNCTIONS & VARIABLES ##################################################################

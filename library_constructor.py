@@ -21,6 +21,7 @@ while True:
     else:
         print("There was a problem in entering the information. Check what you have input for correctness.\n")
 
+# loop to acquire DFT only file, reference energy file and directory for xyz files
 while True:
     print("Give all the following information as instructed")
     struct_path = input("Write out the full path for the directory that holds the structures' xyz files: ").lower()
@@ -41,6 +42,7 @@ while True:
         print("The path provided does not lead to an existing directory - check paths for correctness\n")
 
 gcp = False
+
 
 if basis in information["gcp"]:
     correction = input("Do you want Geometric Counterpoise Corrections added(y/n): ").lower()

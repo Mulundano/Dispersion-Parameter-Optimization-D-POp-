@@ -382,6 +382,6 @@ def nelder_mead( splx, α=1.0, β=2.0,γ=0.5, ϵ=0.0001, **kwargs):
 
     # putting final information in output file
     with open(file_name, 'a') as f:
-        f.write(f"The MAE is {mae(strd_values, energy_list)}. The MAPE is {mape(strd_values, energy_list)}. The RMSE is {rmse(strd_values, energy_list)}\nThe final parameters are\n A1: {parameters[0]}\n S8: {parameters[1]}\n A2: {parameters[2]}\n The {error_func.upper()} with these parameters is {error}\nThe list of interaction energies with the final parameters is:\n {energy_list}\n\n")
+        f.write(f"The MAE is {mae(strd_values, energy_list)}. The MAPE is {mape(strd_values, energy_list)}. The RMSE is {rmse(strd_values, energy_list)}\nThe final parameters are\n A1: {parameters[0]}\n A2: {parameters[1]}\n S8: {parameters[2]}\n The {error_func.upper()} with these parameters is {error}\nThe list of interaction energies with the final parameters is:\n {energy_list}\n\n")
         
 ################################ NELDER MEAD METHOD SPECFIC FUNCTIONS & VARIABLES ##################################################################
